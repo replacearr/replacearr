@@ -100,3 +100,13 @@ jobs:
       tag: ${{ github.ref_name }}
       push_latest: true
     secrets: inherit
+
+  # After Docker Hub so the image is pullable before Discord announces.
+  discord:
+    name: Discord
+    needs: dockerhub
+    if: startsWith(github.ref, 'refs/tags/v')
+    uses: ./.github/workflows/discord-release.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit

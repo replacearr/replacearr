@@ -1,6 +1,9 @@
 ###############################################################################
 # Announce published GitHub releases in Discord (e.g. #announcements thread).
 #
+# Called from release.yml after Docker Hub publishes so the image is pullable
+# before the announcement. Also available via workflow_dispatch for re-posts.
+#
 # Posts a short blurb + links (not the full release body). Discord embeds are
 # capped; long markdown release notes reliably 400.
 #
@@ -16,8 +19,12 @@
 name: Discord release
 
 on:
-  release:
-    types: [published]
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag to announce (e.g. v0.3.0)
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       tag:
@@ -31,7 +38,6 @@ permissions:
 jobs:
   announce:
     name: Announce in Discord
-    if: github.event_name == 'workflow_dispatch' || (!github.event.release.draft && !github.event.release.prerelease)
     runs-on: ubuntu-24.04
     steps:
       - name: Require webhook secret
@@ -51,26 +57,14 @@ jobs:
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
-          EVENT_NAME: ${{ github.event_name }}
-          RELEASE_NAME: ${{ github.event.release.name }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-          RELEASE_URL: ${{ github.event.release.html_url }}
-          RELEASE_BODY: ${{ github.event.release.body }}
-          DISPATCH_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            json=$(gh api "repos/${{ github.repository }}/releases/tags/${DISPATCH_TAG}")
-            NAME=$(jq -r '.name // .tag_name' <<<"$json")
-            TAG=$(jq -r '.tag_name' <<<"$json")
-            URL=$(jq -r '.html_url' <<<"$json")
-            BODY=$(jq -r '.body // ""' <<<"$json")
-          else
-            NAME="${RELEASE_NAME:-$RELEASE_TAG}"
-            TAG="$RELEASE_TAG"
-            URL="$RELEASE_URL"
-            BODY="$RELEASE_BODY"
-          fi
+          json=$(gh api "repos/${{ github.repository }}/releases/tags/${RELEASE_TAG}")
+          NAME=$(jq -r '.name // .tag_name' <<<"$json")
+          TAG=$(jq -r '.tag_name' <<<"$json")
+          URL=$(jq -r '.html_url' <<<"$json")
+          BODY=$(jq -r '.body // ""' <<<"$json")
 
           # Short blurb only: first non-empty, non-heading paragraph (max 280 chars).
           BLURB=$(printf '%s\n' "$BODY" \
