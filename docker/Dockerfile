@@ -41,14 +41,16 @@ COPY --from=web-builder /app/web/dist/ ./internal/webui/dist/
 # Example plugins (including the Torznab demo indexer) stay under examples/
 # and are not bundled into the production image.
 # Product version comes from the root VERSION file unless --build-arg VERSION= is set.
-# Dockerfile rules: $(cmd) stays single-dollar for the shell; shell vars use $$NAME;
-# ${VERSION}/${COMMIT} are ARG substitutions.
+#
+# Dockerfile RUN env-substitution rewrites $NAME / ${NAME} for ARGs (and empties
+# unknown names) before the shell runs. Escaping with $$ is NOT safe here: in RUN
+# lines Docker does not turn $$ into $, so the shell sees $$ as its PID and
+# $$APP_VERSION becomes "1APP_VERSION". Prefer ${ARG} for build-args and $(cmd)
+# for shell values that must be expanded at build time.
 RUN mkdir -p /out/plugins && \
-    APP_VERSION="${VERSION}" && \
-    if [ -z "$$APP_VERSION" ]; then APP_VERSION=$(tr -d '[:space:]' < VERSION); fi && \
-    BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ") && \
+    ( [ -n "${VERSION}" ] && printf '%s' "${VERSION}" || tr -d '[:space:]' < VERSION ) > /tmp/app_version && \
     CGO_ENABLED=0 go build \
-      -ldflags="-s -w -X main.Version=$$APP_VERSION -X main.Commit=${COMMIT} -X main.BuildTime=$$BUILD_TIME" \
+      -ldflags="-s -w -X main.Version=$(cat /tmp/app_version) -X main.Commit=${COMMIT} -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       -o /out/replacearr ./cmd/replacearr
 
 # ------------------------------------------------------------------------------

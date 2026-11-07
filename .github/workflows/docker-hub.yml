@@ -87,6 +87,26 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Verify embedded product version
+        run: |
+          set -euo pipefail
+          IMAGE="docker.io/ldrrp/replacearr:${{ steps.ver.outputs.tag }}"
+          EXPECTED="${{ steps.ver.outputs.version }}"
+          docker pull "$IMAGE"
+          cid=$(docker create "$IMAGE")
+          docker cp "$cid:/usr/local/bin/replacearr" /tmp/replacearr-bin
+          docker rm "$cid" >/dev/null
+          python3 - <<PY
+          from pathlib import Path
+          data = Path("/tmp/replacearr-bin").read_bytes()
+          expected = "${{ steps.ver.outputs.version }}".encode()
+          if b"1APP_VERSION" in data:
+              raise SystemExit("binary still contains broken $$APP_VERSION ldflags substitution")
+          if expected not in data:
+              raise SystemExit(f"binary missing expected version {expected!r}")
+          print(f"embedded version ok: {expected.decode()}")
+          PY
+
       - name: Update Docker Hub overview
         uses: peter-evans/dockerhub-description@v5
         with:
