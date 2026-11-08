@@ -227,6 +227,15 @@ func TestSessionListAndRevoke(t *testing.T) {
 	mux := http.NewServeMux()
 	svc.RegisterRoutes(mux)
 
+	const clientAddr = "203.0.113.10:54321"
+	authed := func(method, path, token string) *http.Request {
+		t.Helper()
+		req := httptest.NewRequest(method, path, nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.RemoteAddr = clientAddr
+		return req
+	}
+
 	login := func(remember bool) string {
 		t.Helper()
 		body, _ := json.Marshal(map[string]any{
@@ -236,7 +245,7 @@ func TestSessionListAndRevoke(t *testing.T) {
 		})
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(body))
 		req.Header.Set("User-Agent", "ReplacearrTest/1.0")
-		req.RemoteAddr = "203.0.113.10:54321"
+		req.RemoteAddr = clientAddr
 		rec := httptest.NewRecorder()
 		mux.ServeHTTP(rec, req)
 		if rec.Code != http.StatusOK {
@@ -254,8 +263,7 @@ func TestSessionListAndRevoke(t *testing.T) {
 	tokenA := login(true)
 	tokenB := login(false)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/sessions", nil)
-	req.Header.Set("Authorization", "Bearer "+tokenA)
+	req := authed(http.MethodGet, "/api/v1/auth/sessions", tokenA)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -280,36 +288,77 @@ func TestSessionListAndRevoke(t *testing.T) {
 		t.Fatalf("expected current and other session ids: %+v", sessions)
 	}
 
-	req = httptest.NewRequest(http.MethodDelete, "/api/v1/auth/sessions/"+otherID, nil)
-	req.Header.Set("Authorization", "Bearer "+tokenA)
+	req = authed(http.MethodDelete, "/api/v1/auth/sessions/"+otherID, tokenA)
 	rec = httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("revoke session status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
-	req.Header.Set("Authorization", "Bearer "+tokenB)
+	req = authed(http.MethodGet, "/api/v1/auth/me", tokenB)
 	rec = httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected revoked session unauthorized, got %d", rec.Code)
 	}
 
-	req = httptest.NewRequest(http.MethodPost, "/api/v1/auth/sessions/revoke-others", nil)
-	req.Header.Set("Authorization", "Bearer "+tokenA)
+	req = authed(http.MethodPost, "/api/v1/auth/sessions/revoke-others", tokenA)
 	rec = httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("revoke others status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
-	req.Header.Set("Authorization", "Bearer "+tokenA)
+	req = authed(http.MethodGet, "/api/v1/auth/me", tokenA)
 	rec = httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("current session should still work, got %d", rec.Code)
+	}
+}
+
+func TestSessionKeepsWorkingWhenClientIPChanges(t *testing.T) {
+	svc, store, _ := setupTestService(t)
+	mux := http.NewServeMux()
+	svc.RegisterRoutes(mux)
+
+	body, _ := json.Marshal(map[string]any{
+		"username": "admin",
+		"password": "supersecret",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(body))
+	req.RemoteAddr = "10.0.0.2:80"
+	req.Header.Set("X-Forwarded-For", "198.51.100.10")
+	req.Header.Set("User-Agent", "ReplacearrTest/1.0")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("login status %d: %s", rec.Code, rec.Body.String())
+	}
+	var loginResp struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &loginResp); err != nil || loginResp.Token == "" {
+		t.Fatalf("login token: %v body=%s", err, rec.Body.String())
+	}
+
+	// Traveling / cellular IP change must not log the session out.
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	req.Header.Set("Authorization", "Bearer "+loginResp.Token)
+	req.RemoteAddr = "10.0.0.2:82"
+	req.Header.Set("X-Forwarded-For", "203.0.113.99")
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected session to survive client IP change, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	sessions, err := store.ListAuthSessionsForUser(1)
+	if err != nil {
+		t.Fatalf("list sessions: %v", err)
+	}
+	if len(sessions) == 0 || sessions[0].IPAddress != "203.0.113.99" {
+		t.Fatalf("expected stored IP to refresh to new client address, got %+v", sessions)
 	}
 }
 

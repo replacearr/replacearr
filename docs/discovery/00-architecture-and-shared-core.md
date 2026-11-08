@@ -145,7 +145,7 @@ REPLACEARR ARCHITECTURE (1 Process, 1 Unified SQLite DB, Zero-Copy In-Memory Sea
 
 ### 4.2 Unified SQLite Schema (`internal/db/migrations/001_init.sql`)
 Replacearr stores all shared and media-specific state in a single WAL-mode SQLite database (`internal/db/sqlite.go`):
-* **Shared Authentication & RBAC**: `roles`, `users`, `api_keys` (with `scope` supporting `all`, `sonarr`, `radarr`, `lidarr`, `readarr`, `prowlarr` so ecosystem clients can use scoped or global API keys), and `auth_sessions` (server-tracked JWT logins with `sid` claim; Settings → Sessions can list/kill sessions or sign out other devices).
+* **Shared Authentication & RBAC**: `roles`, `users`, `api_keys` (with `scope` supporting `all`, `sonarr`, `radarr`, `lidarr`, `readarr`, `prowlarr` so ecosystem clients can use scoped or global API keys), and `auth_sessions` (server-tracked JWT logins with `sid` claim; Settings → Sessions can list/kill sessions or sign out other devices). Session rows record the resolved client IP for display only (updated on last-seen); IP changes do not revoke the login. Behind a reverse proxy, `clientIP` trusts `CF-Connecting-IP` / `True-Client-IP` / `X-Real-IP` / `X-Forwarded-For` only when the immediate peer is loopback, private, link-local, or CGNAT.
 * **Shared Configuration Tables**:
   * `tags` (`id`, `label`): Single tag namespace across TV, Movies, Music, Books, Indexers, and Download Clients.
   * `root_folders` (`id`, `path`, `media_type`, `accessible`, `free_space`, `total_space`): Filtered by `media_type` (`tv`, `movie`, `music`, `ebook`, `audiobook`, or `all`).

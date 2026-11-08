@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/replacearr/replacearr/internal/domain"
@@ -101,8 +102,17 @@ func (s *Store) ListAuthSessionsForUser(userID int64) ([]domain.AuthSession, err
 	return out, rows.Err()
 }
 
-func (s *Store) TouchAuthSession(id string, at time.Time) error {
-	_, err := s.db.Exec(`UPDATE auth_sessions SET last_seen_at = ? WHERE id = ? AND revoked_at IS NULL`, at.UTC(), id)
+func (s *Store) TouchAuthSession(id string, at time.Time, ipAddress string) error {
+	ipAddress = strings.TrimSpace(ipAddress)
+	var err error
+	if ipAddress != "" {
+		_, err = s.db.Exec(`
+			UPDATE auth_sessions SET last_seen_at = ?, ip_address = ?
+			WHERE id = ? AND revoked_at IS NULL`,
+			at.UTC(), ipAddress, id)
+	} else {
+		_, err = s.db.Exec(`UPDATE auth_sessions SET last_seen_at = ? WHERE id = ? AND revoked_at IS NULL`, at.UTC(), id)
+	}
 	if err != nil {
 		return fmt.Errorf("touch auth session: %w", err)
 	}

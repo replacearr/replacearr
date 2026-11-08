@@ -253,11 +253,12 @@ func (s *Service) Authenticate(username, password string, opts LoginOptions) (*d
 	return u, signed, sess, nil
 }
 
-func (s *Service) ValidateToken(tokenStr string) (*domain.User, *domain.AuthSession, error) {
+func (s *Service) ValidateToken(tokenStr, requestIP string) (*domain.User, *domain.AuthSession, error) {
 	tokenStr = strings.TrimSpace(tokenStr)
 	if tokenStr == "" {
 		return nil, nil, ErrInvalidToken
 	}
+	requestIP = strings.TrimSpace(requestIP)
 
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (any, error) {
@@ -285,9 +286,15 @@ func (s *Service) ValidateToken(tokenStr string) (*domain.User, *domain.AuthSess
 		}
 		sess = row
 		// Throttle last-seen writes to avoid SQLite churn on every request.
-		if time.Since(row.LastSeenAt) > 5*time.Minute {
-			_ = s.store.TouchAuthSession(row.ID, time.Now().UTC())
+		// Refresh IP when it changes so Settings → Sessions shows the current
+		// client address behind nginx/Cloudflare without revoking the login.
+		ipChanged := requestIP != "" && requestIP != row.IPAddress
+		if ipChanged || time.Since(row.LastSeenAt) > 5*time.Minute {
+			_ = s.store.TouchAuthSession(row.ID, time.Now().UTC(), requestIP)
 			sess.LastSeenAt = time.Now().UTC()
+			if requestIP != "" {
+				sess.IPAddress = requestIP
+			}
 		}
 	}
 

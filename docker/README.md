@@ -222,7 +222,9 @@ curl -fsS http://localhost:8989/api/v1/system/health
 
 ## Reverse Proxy
 
-Replacearr serves everything from the root path, so proxy a dedicated (sub)domain to port `8989`. Example for Nginx:
+Replacearr serves everything from the root path, so proxy a dedicated (sub)domain to port `8989`. Forward the original client address so Settings → Sessions shows the real IP instead of the proxy/container peer.
+
+Example for Nginx:
 
 ```nginx
 server {
@@ -235,9 +237,13 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        # When Cloudflare sits in front of Nginx, pass its client IP through:
+        # proxy_set_header CF-Connecting-IP $http_cf_connecting_ip;
     }
 }
 ```
+
+Replacearr trusts forwarding headers only when the immediate peer is loopback, private, link-local, or CGNAT (typical Docker / tunnel hops). Preference order: `CF-Connecting-IP`, `True-Client-IP`, `X-Real-IP`, then the left-most hop in `X-Forwarded-For`.
 
 ---
 

@@ -66,7 +66,7 @@ func (s *Service) Middleware(requiredScope string, requiredPerm string, next htt
 			// 3. Authorization: Bearer <token> (try JWT first, then API key)
 			token := strings.TrimSpace(authHeader[7:])
 			if token != "" {
-				if u, sess, err := s.ValidateToken(token); err == nil {
+				if u, sess, err := s.ValidateToken(token, clientIP(r)); err == nil {
 					user = u
 					session = sess
 				} else if k, u, err := s.ValidateAPIKey(token, requiredScope); err == nil {
@@ -76,7 +76,7 @@ func (s *Service) Middleware(requiredScope string, requiredPerm string, next htt
 			}
 		} else if cookie, err := r.Cookie("replacearr_token"); err == nil && strings.TrimSpace(cookie.Value) != "" {
 			// 4. replacearr_token cookie
-			if u, sess, err := s.ValidateToken(cookie.Value); err == nil {
+			if u, sess, err := s.ValidateToken(cookie.Value, clientIP(r)); err == nil {
 				user = u
 				session = sess
 			}
@@ -138,22 +138,92 @@ func extractBearerOrCookieToken(r *http.Request) string {
 	return ""
 }
 
+// clientIP resolves the originating client address.
+//
+// When the immediate peer looks like a reverse proxy (loopback / private /
+// link-local — the usual nginx, Traefik, Caddy, Cloudflare Tunnel, or Docker
+// hop), forwarding headers are consulted in CDN-first order:
+//
+//  1. CF-Connecting-IP (Cloudflare)
+//  2. True-Client-IP (Cloudflare Enterprise / some CDNs)
+//  3. X-Real-IP (nginx)
+//  4. X-Forwarded-For (left-most valid hop — original client)
+//
+// Headers are ignored when the peer is a public address so a client talking
+// directly to Replacearr cannot spoof its IP. Values that are not parseable
+// IPs are skipped.
 func clientIP(r *http.Request) string {
 	if r == nil {
 		return ""
 	}
+	remote := remoteIP(r.RemoteAddr)
+	if remote != "" && !isTrustedProxy(remote) {
+		return remote
+	}
+	if ip := headerClientIP(r.Header.Get("CF-Connecting-IP")); ip != "" {
+		return ip
+	}
+	if ip := headerClientIP(r.Header.Get("True-Client-IP")); ip != "" {
+		return ip
+	}
+	if ip := headerClientIP(r.Header.Get("X-Real-IP")); ip != "" {
+		return ip
+	}
 	if xff := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); xff != "" {
-		if i := strings.IndexByte(xff, ','); i >= 0 {
-			return strings.TrimSpace(xff[:i])
+		for _, part := range strings.Split(xff, ",") {
+			if ip := headerClientIP(part); ip != "" {
+				return ip
+			}
 		}
-		return xff
 	}
-	if xri := strings.TrimSpace(r.Header.Get("X-Real-IP")); xri != "" {
-		return xri
+	return remote
+}
+
+func remoteIP(addr string) string {
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return ""
 	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
-		return r.RemoteAddr
+		// Bare IP without port (or already stripped).
+		if ip := net.ParseIP(addr); ip != nil {
+			return ip.String()
+		}
+		return addr
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.String()
 	}
 	return host
+}
+
+func headerClientIP(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	// Some proxies wrap IPv6 as "[addr]".
+	raw = strings.Trim(raw, "[]")
+	ip := net.ParseIP(raw)
+	if ip == nil {
+		return ""
+	}
+	return ip.String()
+}
+
+func isTrustedProxy(ipStr string) bool {
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return false
+	}
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() {
+		return true
+	}
+	// CGNAT / shared-address space often used between reverse proxies and app
+	// containers (RFC 6598).
+	if ip4 := ip.To4(); ip4 != nil && ip4[0] == 100 && ip4[1] >= 64 && ip4[1] <= 127 {
+		return true
+	}
+	return false
 }

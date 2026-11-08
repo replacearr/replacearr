@@ -647,6 +647,7 @@ export const App: React.FC = () => {
               groups={navGroups}
               activeView={activeView}
               expanded={expandedNav}
+              expandOnParentClick={mobileNavOpen}
               onToggleGroup={(id) => setExpandedNav((prev) => ({ ...prev, [id]: !prev[id] }))}
               onSelectView={navigateTo}
               itemProps={(index) => navRoving.itemProps(index)}

@@ -2,6 +2,34 @@
 
 All notable changes to Replacearr are documented in this file.
 
+## [0.3.x] - 2026-xx-xx - main (unreleased)
+
+### Added
+- Easier mobile navigation withouth auto navigate. Expand first.
+
+### Changed
+- Moved discord announcement after docker publish.
+
+### Fixed
+- Auth sessions resolve real client IPs behind nginx/Cloudflare (`CF-Connecting-IP`, `True-Client-IP`, `X-Real-IP`, `X-Forwarded-For`) for Settings → Sessions display
+
+
+## [0.3.1] - 2026-11-07 - b548bfc
+
+### Added
+- Album cover thumbs in the Music library from Cover Art Archive (cached via mediacover)
+- Artist portrait thumbs via Wikidata / Wikimedia Commons with Deezer fallback
+- MIT license file
+- Discord release announcements and automatic Docker Hub publishes on tagged releases
+
+### Changed
+- Music album/artist dialogs keep sticky chrome while scrolling and close with Escape
+- Artist grid uses smaller portrait thumbs; image fetches retry with exponential backoff on rate limits
+
+### Fixed
+- Production Docker image embeds the real product version from `VERSION` (broken `$$APP_VERSION` ldflags substitution)
+- Docker Hub workflow verifies the embedded version after push
+
 ## [0.3.0] - 2026-11-06 - 9f8366b
 
 ### Added

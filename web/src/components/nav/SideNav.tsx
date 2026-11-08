@@ -9,6 +9,11 @@ export interface SideNavProps {
   expanded: Record<string, boolean>;
   onToggleGroup: (groupId: string) => void;
   onSelectView: (view: NavView) => void;
+  /**
+   * When true (mobile drawer open), parent rows with children only expand/collapse.
+   * Desktop keeps navigate-to-default on parent click.
+   */
+  expandOnParentClick?: boolean;
   itemProps?: (index: number) => React.HTMLAttributes<HTMLElement>;
   footer?: React.ReactNode;
 }
@@ -19,6 +24,7 @@ export const SideNav: React.FC<SideNavProps> = ({
   expanded,
   onToggleGroup,
   onSelectView,
+  expandOnParentClick = false,
   itemProps,
   footer,
 }) => {
@@ -43,7 +49,14 @@ export const SideNav: React.FC<SideNavProps> = ({
               {...parentRoving}
               onClick={() => {
                 if (hasChildren) {
-                  // Clicking the already-active open section collapses it in place.
+                  // Mobile drawer is open: expand/collapse only so a child can be chosen
+                  // without closing the menu. Do not key this off matchMedia — DevTools
+                  // "mobile" and real narrow layouts disagree with JS media queries.
+                  if (expandOnParentClick) {
+                    onToggleGroup(group.id);
+                    return;
+                  }
+                  // Desktop: clicking the already-active open section collapses it in place.
                   if (groupActive && isExpanded) {
                     onToggleGroup(group.id);
                     return;

@@ -268,7 +268,7 @@ export function buildNavGroups(
         accent: 'text-indigo-300',
       },
       SETTINGS_CHILDREN.filter((child) => canAccessView(child.id, permissions)),
-      'settings.media'
+      'settings.general'
     ),
     withFilteredChildren(
       {
