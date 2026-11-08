@@ -13,7 +13,7 @@ All notable changes to Replacearr are documented in this file.
 ### Fixed
 - Nothing
 
-## [0.3.2] - 2026-11-08 - 
+## [0.3.2] - 2026-11-08 - 7c41ce1
 
 ### Added
 - Easier mobile navigation withouth auto navig main (unreleased)ate. Expand first.
