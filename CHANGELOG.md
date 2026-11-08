@@ -5,7 +5,19 @@ All notable changes to Replacearr are documented in this file.
 ## [0.3.x] - 2026-xx-xx - main (unreleased)
 
 ### Added
-- Easier mobile navigation withouth auto navigate. Expand first.
+- Nothing
+
+### Changed
+- Nothing
+
+### Fixed
+- Nothing
+
+## [0.3.2] - 2026-11-08 - 
+
+### Added
+- Easier mobile navigation withouth auto navig main (unreleased)ate. Expand first.
+- Readme badges
 
 ### Changed
 - Moved discord announcement after docker publish.
