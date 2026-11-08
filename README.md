@@ -1,8 +1,11 @@
 # Replacearr
 
-Website: [replacearr.com](https://replacearr.com) · Source: [github.com/replacearr/replacearr](https://github.com/replacearr/replacearr) · Discord: [discord.gg/WUrKJuE5XB](https://discord.gg/WUrKJuE5XB)
-
-This is a highly experimental AI created repo. I still have to deslop it. feel free to make PRs and issues. All are welcome. just needed it published so that I can deploy it using dockerhub.
+[![CI](https://github.com/replacearr/replacearr/actions/workflows/ci.yml/badge.svg)](https://github.com/replacearr/replacearr/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/replacearr/replacearr?label=release)](https://github.com/replacearr/replacearr/releases/latest)
+[![Docker Image](https://img.shields.io/docker/v/ldrrp/replacearr?label=docker&logo=docker&color=2496ED)](https://hub.docker.com/r/ldrrp/replacearr)
+[![Go](https://img.shields.io/github/go-mod/go-version/replacearr/replacearr)](https://github.com/replacearr/replacearr/blob/main/go.mod)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Discord](https://img.shields.io/discord/1567404032891293706?logo=discord&logoColor=white&label=discord)](https://discord.gg/WUrKJuE5XB)
 
 **Replacearr** is a fast, single-binary, Go-powered replacement for **Sonarr**, **Radarr**, and **Prowlarr** with a unified React web interface, role-based access control (RBAC) for users and scoped API keys, native Cardigann YAML indexer definitions, and an out-of-process **Go Plugin SDK** (`pkg/pluginsdk`).
 

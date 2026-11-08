@@ -12,6 +12,7 @@ All notable changes to Replacearr are documented in this file.
 
 ### Fixed
 - Auth sessions resolve real client IPs behind nginx/Cloudflare (`CF-Connecting-IP`, `True-Client-IP`, `X-Real-IP`, `X-Forwarded-For`) for Settings → Sessions display
+- Settings Nav item opens General instead of Media by default.
 
 
 ## [0.3.1] - 2026-11-07 - b548bfc
